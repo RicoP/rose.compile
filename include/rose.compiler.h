@@ -7,7 +7,7 @@ struct RoseCompiler {
     std::vector<const char*> files;
     std::vector<const char*> defines;
     std::vector<const char*> includes;
-    char* app_name = "";
+    const char* app_name = "";
     bool verbose = false;
     bool execute = true;
 

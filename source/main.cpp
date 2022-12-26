@@ -24,18 +24,26 @@ int main(int argc, char** argv) {
 
     RoseCompiler compiler;
 
-	char* app_name = "game.dll";
-
+	const char* app_name = "game.dll";
+	const char* arg = "";
+	const char* lastarg = "";
     uint64_t state = 0;
+    bool proceed = false;
 
     for(char ** parg = argv + 1; parg != argv + argc; ) {
-        char * arg = *parg;
+        lastarg = arg;
+        arg = *parg;
 
         switch(state) {
-            case 0:                 
+            case 0:
+                if(proceed) {
+                    proceed = false;
+                    parg++;
+                    continue;
+                } 
                 if(arg[0] == '-') {
                     state = fnFNV(arg);
-                    parg++;
+                    proceed = true;
                     continue;
                 }
                 else {
@@ -51,14 +59,21 @@ int main(int argc, char** argv) {
             break; case fnFNV("--buildtime"): 
                 printf(__DATE__ " " __TIME__ "\n"); 
             break; case fnFNV("-o"): case fnFNV("--output"):
-                state = __LINE__; continue; case __LINE__:
+				parg++; state = __LINE__; continue; case __LINE__:
                 app_name = arg; 
-				parg++;
             break; case fnFNV("-D"):
                 compiler.defines.push_back(arg + 2); 
+            break; default:
+                std::fprintf(stderr, "unknown command %s \n", lastarg);
+                return 1;
         }
         
         state = 0;
+    }
+
+    if(state != 0) {
+        std::fprintf(stderr, "expected argument after %s \n", arg);
+        return 1;
     }
 
     compiler.app_name = app_name;
