@@ -75,53 +75,49 @@ int main(int argc, char ** argv) {
 
         char * p = buffer;
 
-        #define ERR_CHECK(...) do { \
-            if(n == -1 || n >= left) { \
-                fprintf(stderr, "Buffer overflow \n"); \
-                exit(1); \
-            } \
-            p += n; \
-            left -= n; \
-        } while(0);
+        auto err_check = [&] () {
+            if (n == -1 || n >= left) {
+                std::fprintf(stderr, "Buffer overflow \n");
+                std::exit(1);
+            }
+            p += n;
+            left -= n;
+        };
 
-        #define COMPILER "CL"
-        #define FLAGS    "/nologo /MP /std:c++17 /wd\"4530\""
-        #define DLL_STUFF "/LD /MD"
-
-        n = std::snprintf(p, left, COMPILER " " FLAGS " ");
-        ERR_CHECK();
+        n = std::snprintf(p, left, "CL /nologo /MP /std:c++17 /wd\"4530\" ");
+        err_check();
 
         for(auto & def : defines) {
             n = std::snprintf(p, left, "%s ", def);
-            ERR_CHECK();
+            err_check();
         }
 
-        n = std::snprintf(p, left, "/Zi " DLL_STUFF " ");
-        ERR_CHECK();
+        n = std::snprintf(p, left, "/Zi /LD /MD ");
+        err_check();
 
         for(auto & include : includes) {
             n = std::snprintf(p, left, "%s ", include);
-            ERR_CHECK();
+            err_check();
         }
 
         n = std::snprintf(p, left, "/FE:\"%s\" ", g_app_name);
-        ERR_CHECK();
+        err_check();
 
         for(auto & file : files) {
             n = std::snprintf(p, left, "%s ", file);
-            ERR_CHECK();
+            err_check();
         }
 
         for(auto & lib : libs) {
             n = std::snprintf(p, left, "%s ", lib);
-            ERR_CHECK();
+            err_check();
         }
 
         n = std::snprintf(p, left, "/link /incremental /PDB:\"%s\" ", g_pdb_name);
-        ERR_CHECK();
+        err_check();
 
         //print command
-        std::printf("%s \n", buffer);
+        std::printf("%s \n %d \n", buffer, left);
     }
 
     return 0;
