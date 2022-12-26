@@ -7,52 +7,61 @@
 #define IMPL_ROSE_COMPILER
 #include "../include/rose.compiler.h"
 
+//https://de.wikipedia.org/wiki/FNV_(Informatik)#FNV-Implementation,_64-bit-Schl%C3%BCssel
+constexpr uint64_t fnFNV (const char* pBuffer)
+{
+    const uint64_t  MagicPrime = 0x00000100000001b3;
+    uint64_t        Hash       = 0xcbf29ce484222325;
+
+    for (; *pBuffer; pBuffer++)
+        Hash = (Hash ^ *pBuffer) * MagicPrime;   // bitweises XOR und dann Multiplikation
+
+    return Hash;
+}
+
 int main(int argc, char** argv) {
     if(argc < 1) return 1; //Shouldn't happen
 
     RoseCompiler compiler;
 
-	char* g_app_name = "game.dll";
+	char* app_name = "game.dll";
 
-    enum class State {
-        None = 0,
-        Name
-    } state = State::None;
+    uint64_t state = 0;
 
-    for(char ** parg = argv + 1; parg != argv + argc; parg++) {
+    for(char ** parg = argv + 1; parg != argv + argc; ) {
         char * arg = *parg;
 
         switch(state) {
-            case State::None: 
+            case 0:                 
                 if(arg[0] == '-') {
-                    //options
-                    if(std::strcmp(arg, "-v") == 0 || std::strcmp(arg, "--verbose") == 0) {
-                        compiler.verbose = true;
-                    } else if(std::strcmp(arg, "-ne") == 0 || std::strcmp(arg, "--no_execute") == 0) {
-                        compiler.execute = false;
-                    } else if(std::strcmp(arg, "-pwd") == 0 || std::strcmp(arg, "--current_path") == 0) {
-                        printf("PWD %s \n", argv[0]);
-                    } else if(std::strcmp(arg, "--buildtime") == 0) {
-                        printf(__DATE__ " " __TIME__ "\n");
-                    } else if(std::strcmp(arg, "-o") == 0 || std::strcmp(arg, "--output") == 0) {
-                        state = State::Name; continue;
-                    } else if(std::strcmp(arg, "-D") == 0) {
-                        compiler.defines.push_back(arg + 2);
-                    } else {
-                        fprintf(stderr, "Unknown option %s \n", arg);
-                        return 1;
-                    }
+                    state = fnFNV(arg);
+                    parg++;
+                    continue;
                 }
                 else {
                     compiler.files.push_back(arg);
+                    parg++;
                 }
-                break;
-            case State::Name: g_app_name = arg; break;
+            break; case fnFNV("-v"): case fnFNV("--verbose"):
+                compiler.verbose = true;  
+            break; case fnFNV("-ne"): case fnFNV("--no_execute"):
+                compiler.execute = false; 
+            break; case fnFNV("-pwd"): case fnFNV("--current_path"):
+                printf("PWD %s \n", argv[0]); 
+            break; case fnFNV("--buildtime"): 
+                printf(__DATE__ " " __TIME__ "\n"); 
+            break; case fnFNV("-o"): case fnFNV("--output"):
+                state = __LINE__; continue; case __LINE__:
+                app_name = arg; 
+				parg++;
+            break; case fnFNV("-D"):
+                compiler.defines.push_back(arg + 2); 
         }
         
-        state = State::None;
+        state = 0;
     }
 
+    compiler.app_name = app_name;
     bool ok = compiler.compile();
 
     if (ok) {
