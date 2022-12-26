@@ -26,29 +26,21 @@ int main(int argc, char** argv) {
 
 	const char* app_name = "game.dll";
 	const char* arg = "";
-	const char* lastarg = "";
     uint64_t state = 0;
-    bool proceed = false;
+
 
     for(char ** parg = argv + 1; parg != argv + argc; ) {
-        lastarg = arg;
         arg = *parg;
 
         switch(state) {
+            #define NEXT(...) parg++; state = __LINE__; continue; case __LINE__:
             case 0:
-                if(proceed) {
-                    proceed = false;
-                    parg++;
-                    continue;
-                } 
                 if(arg[0] == '-') {
                     state = fnFNV(arg);
-                    proceed = true;
                     continue;
                 }
                 else {
                     compiler.files.push_back(arg);
-                    parg++;
                 }
             break; case fnFNV("-v"): case fnFNV("--verbose"):
                 compiler.verbose = true;  
@@ -59,16 +51,18 @@ int main(int argc, char** argv) {
             break; case fnFNV("--buildtime"): 
                 printf(__DATE__ " " __TIME__ "\n"); 
             break; case fnFNV("-o"): case fnFNV("--output"):
-				parg++; state = __LINE__; continue; case __LINE__:
+                NEXT();
                 app_name = arg; 
-            break; case fnFNV("-D"):
-                compiler.defines.push_back(arg + 2); 
+            break; case fnFNV("-D"): case fnFNV("--define"):
+                NEXT();
+                compiler.defines.push_back(arg); 
             break; default:
-                std::fprintf(stderr, "unknown command %s \n", lastarg);
+                std::fprintf(stderr, "unknown command %s \n", arg);
                 return 1;
         }
         
         state = 0;
+        parg++;
     }
 
     if(state != 0) {
