@@ -2,11 +2,7 @@
 #include <cstdio>
 #include <vector>
 #include <cstring>
-
-static bool g_verbose = false;
-static bool g_execute = true;
-static char * g_app_name = "game.dll";
-static char g_pdb_name[512] = "";
+#include <windows.h>
 
 template<size_t SIZE>
 struct SafePrinter {
@@ -14,7 +10,7 @@ struct SafePrinter {
     char * p = buffer;
     int left = SIZE;
 
-    void printf (char const* const format, ...) {
+    bool printf (char const* const format, ...) {
         va_list args;
         va_start(args, format);
         int n = std::vsnprintf(p, left, format, args);
@@ -22,31 +18,59 @@ struct SafePrinter {
 
         if (n == -1 || n >= left) {
             std::fprintf(stderr, "Buffer overflow \n");
-            std::exit(1);
+            left = 0;
+            return false;
         }
         p += n;
         left -= n;
+
+        return true;
     };
 };
 
-// Function to generate a temporary filename ending with ".pdb"
+char* get_program_path(const char* program_name) {
+  static char path[MAX_PATH];
+  if (SearchPathA(NULL, program_name, ".exe", MAX_PATH, path, NULL) != 0) {
+    return path;
+  }
+  else {
+    return NULL;
+  }
+}
+
+// Function to generate a temporary filename ending with the file type
 void GetTempFileName(char *temp_file_name, const char * file_type) {
     // Generate a temporary filename and store it in the provided buffer
     std::tmpnam(temp_file_name);
 
-    // Append ".pdb" to the end of the filename
+    // Append ".xxx" to the end of the filename
     std::strcat(temp_file_name, file_type);
 }
 
-int main(int argc, char ** argv) {
+struct RoseCompiler {
+    std::vector<const char*> files;
+    std::vector<const char*> defines;
+    std::vector<const char*> includes;
+    char* app_name = "";
+    bool verbose = false;
+    bool execute = true;
+
+    bool compile();
+};
+
+int main(int argc, char** argv) {
     if(argc < 1) return 1; //Shouldn't happen
+
+    RoseCompiler compiler;
+
+	char* g_app_name = "game.dll";
 
     enum class State {
         None = 0,
         Name
     } state = State::None;
 
-    std::vector<const char*> includes {
+    compiler.includes = std::vector<const char*> {
         "."
         ,"../include/maths"
         ,"../include/mathc"
@@ -56,14 +80,6 @@ int main(int argc, char ** argv) {
         ,"../raylib/src"
         ,"../premake-comppp/include/"
     };
-    std::vector<const char*> files { "../rose/source/systems/source/roseimpl.cpp"};
-    std::vector<const char*> defines {"IMGUI_API=__declspec(dllimport)"};
-    std::vector<const char*> libs {
-        "A:/rose_repo/rose/.build/bin/Release/raylib.lib", 
-        "A:/rose_repo/rose/.build/bin/Release/imgui.lib"
-    };
-
-    GetTempFileName(g_pdb_name, ".pdb");
 
     for(char ** parg = argv + 1; parg != argv + argc; parg++) {
         char * arg = *parg;
@@ -73,22 +89,24 @@ int main(int argc, char ** argv) {
                 if(arg[0] == '-') {
                     //options
                     if(std::strcmp(arg, "-v") == 0 || std::strcmp(arg, "--verbose") == 0) {
-                        g_verbose = true;
+                        compiler.verbose = true;
                     } else if(std::strcmp(arg, "-ne") == 0 || std::strcmp(arg, "--no_execute") == 0) {
-                        g_execute = false;
+                        compiler.execute = false;
                     } else if(std::strcmp(arg, "-pwd") == 0 || std::strcmp(arg, "--current_path") == 0) {
                         printf("PWD %s \n", argv[0]);
                     } else if(std::strcmp(arg, "--buildtime") == 0) {
                         printf(__DATE__ " " __TIME__ "\n");
                     } else if(std::strcmp(arg, "-o") == 0 || std::strcmp(arg, "--output") == 0) {
                         state = State::Name; continue;
+                    } else if(std::strcmp(arg, "-D") == 0) {
+                        compiler.defines.push_back(arg + 2);
                     } else {
-                        fprintf(stderr, "Unknown option -%s \n", arg);
+                        fprintf(stderr, "Unknown option %s \n", arg);
                         return 1;
                     }
                 }
                 else {
-                    files.push_back(arg);
+                    compiler.files.push_back(arg);
                 }
                 break;
             case State::Name: g_app_name = arg; break;
@@ -97,52 +115,73 @@ int main(int argc, char ** argv) {
         state = State::None;
     }
 
-    //
-	// error = execute(f'{compiler} /nologo /MP /std:c++17 /wd"4530"
-    // {arg_defines} 
-    // /Zi {dll_stuff}
-    // {INCLUDES}
-    // /Fe:"{APP_NAME}"
-    // {arg_c_files}
-    // {libs}
-    // /link /incremental /PDB:"{PDB_NAME}" > {TMP}/clout.txt')
+    bool ok = compiler.compile();
 
-    {
-        SafePrinter<4096> command;
-        command.printf("CL /nologo /MP /std:c++17 /wd\"4530\" ");
-
-        for(auto & def : defines) {
-            command.printf("/D%s ", def);
-        }
-
-        command.printf("/Zi /LD /MD ");
-
-        for(auto & include : includes) {
-            command.printf("/I %s ", include);
-        }
-
-        command.printf("/Fe:\"%s\" ", g_app_name);
-        
-        for(auto & file : files) {
-            command.printf("%s ", file);
-        }
-
-        for(auto & lib : libs) {
-            command.printf("%s ", lib);
-        }
-
-        command.printf("/link /incremental /PDB:\"%s\" ", g_pdb_name);
-
-        //print command
-        if(g_verbose) {
-            std::printf("%s \n", command.buffer);
-        }
-        
-        if(g_execute) {
-            std::system(command.buffer);
-        }
+    if (ok) {
+        printf("\n\nOK! \n");
+    }
+    else {
+        printf("\n\nError! \n");
     }
 
     return 0;
 }
 
+
+bool RoseCompiler::compile() {
+    SafePrinter<4096> command;
+    bool ok;
+
+    std::vector<const char*> libs {
+        "../rose/.build/bin/Release/raylib.lib",
+        "../rose/.build/bin/Release/imgui.lib"
+    };
+
+    files.push_back("../rose/source/systems/source/roseimpl.cpp");
+    defines.push_back("IMGUI_API=__declspec(dllimport)");
+
+    char pdb_name[512] = "";
+    GetTempFileName(pdb_name, ".pdb");
+
+    ok = command.printf("CL /nologo /MP /std:c++17 /wd\"4530\" ");
+    if(!ok) return false;
+
+    for (auto& def : defines) {
+        ok = command.printf("/D%s ", def);
+        if(!ok) return false;
+    }
+
+    ok = command.printf("/Zi /LD /MD ");
+    if(!ok) return false;
+
+    for (auto& include : includes) {
+        ok = command.printf("/I %s ", include);
+        if(!ok) return false;
+    }
+
+    ok = command.printf("/Fe:\"%s\" ", app_name);
+    if(!ok) return false;
+
+    for (auto& file : files) {
+        ok = command.printf("%s ", file);
+        if(!ok) return false;
+    }
+
+    for (auto& lib : libs) {
+        ok = command.printf("%s ", lib);
+        if(!ok) return false;
+    }
+
+    ok = command.printf("/link /incremental /PDB:\"%s\" ", pdb_name);
+    if(!ok) return false;
+
+    if (verbose) {
+        std::printf("%s \n", command.buffer);
+    }
+
+    if (execute) {
+        ok = 0 == std::system(command.buffer);
+    }
+
+    return ok;
+}
