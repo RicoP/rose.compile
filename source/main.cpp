@@ -4,7 +4,8 @@
 #include <cstring>
 
 static bool g_verbose = false;
-static char * g_app_name = "game";
+static bool g_execute = true;
+static char * g_app_name = "game.exe";
 static char g_pdb_name[512] = "1234";
 
 
@@ -42,6 +43,8 @@ int main(int argc, char ** argv) {
                     //option
                     if(std::strcmp(arg, "v") == 0 || std::strcmp(arg, "-verbose")) {
                         g_verbose = true;
+                    } else if(std::strcmp(arg, "ne") == 0 || std::strcmp(arg, "-no_execute")) {
+                        g_execute = false;
                     } else if(std::strcmp(arg, "n") == 0 || std::strcmp(arg, "-name")) {
                         state = State::Name; continue;
                     } else {
@@ -54,7 +57,6 @@ int main(int argc, char ** argv) {
                 }
                 break;
             case State::Name: g_app_name = arg; break;
-
         }
         
         state = State::None;
@@ -71,9 +73,9 @@ int main(int argc, char ** argv) {
     // /link /incremental /PDB:"{PDB_NAME}" > {TMP}/clout.txt')
 
     {
-        char buffer[4096];
+        char command[4096];
         int left = 4096;
-        char * p = buffer;
+        char * p = command;
 
         auto safe_sprintf = [&] (char const* const format, ...) {
             va_list args;
@@ -93,36 +95,37 @@ int main(int argc, char ** argv) {
 
         for(auto & def : defines) {
             safe_sprintf("%s ", def);
-            
         }
 
         safe_sprintf("/Zi /LD /MD ");
-        
 
         for(auto & include : includes) {
             safe_sprintf("%s ", include);
-            
         }
 
         safe_sprintf("/FE:\"%s\" ", g_app_name);
         
-
         for(auto & file : files) {
             safe_sprintf("%s ", file);
-            
         }
 
         for(auto & lib : libs) {
             safe_sprintf("%s ", lib);
-            
         }
 
         safe_sprintf("/link /incremental /PDB:\"%s\" ", g_pdb_name);
         
 
         //print command
-        std::printf("%s \n %d \n", buffer, left);
+        if(g_verbose) {
+            std::printf("%s \n %d \n", command, left);
+        }
+        
+        if(g_execute) {
+            std::system(command);
+        }
     }
 
     return 0;
 }
+

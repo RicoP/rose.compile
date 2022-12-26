@@ -1,4 +1,6 @@
 *.pdb
+.build/*
+!.build/keep.me
 
 # Prerequisites
 *.d
