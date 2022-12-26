@@ -5,8 +5,8 @@
 
 static bool g_verbose = false;
 static bool g_execute = true;
-static char * g_app_name = "game.exe";
-static char g_pdb_name[512] = "1234";
+static char * g_app_name = "game.dll";
+static char g_pdb_name[512] = "";
 
 
 // Function to generate a temporary filename ending with ".pdb"
@@ -26,10 +26,22 @@ int main(int argc, char ** argv) {
         Name
     } state = State::None;
 
-    std::vector<const char*> files;
-    std::vector<const char*> defines;
-    std::vector<const char*> includes;
-    std::vector<const char*> libs;
+    std::vector<const char*> includes {
+        "."
+        ,"../include/maths"
+        ,"../include/mathc"
+        ,"../include"
+        ,"../include/imgui"
+        ,"../roselib/include"
+        ,"../raylib/src"
+        ,"../premake-comppp/include/"
+    };
+    std::vector<const char*> files { "../rose/source/systems/source/roseimpl.cpp"};
+    std::vector<const char*> defines {"IMGUI_API=__declspec(dllimport)"};
+    std::vector<const char*> libs {
+        "A:/rose_repo/rose/.build/bin/Release/raylib.lib", 
+        "A:/rose_repo/rose/.build/bin/Release/imgui.lib"
+    };
 
     GetTempFileName(g_pdb_name, ".pdb");
 
@@ -39,13 +51,16 @@ int main(int argc, char ** argv) {
         switch(state) {
             case State::None: 
                 if(arg[0] == '-') {
-                    ++arg;
-                    //option
-                    if(std::strcmp(arg, "v") == 0 || std::strcmp(arg, "-verbose")) {
+                    //options
+                    if(std::strcmp(arg, "-v") == 0 || std::strcmp(arg, "--verbose") == 0) {
                         g_verbose = true;
-                    } else if(std::strcmp(arg, "ne") == 0 || std::strcmp(arg, "-no_execute")) {
+                    } else if(std::strcmp(arg, "-ne") == 0 || std::strcmp(arg, "--no_execute") == 0) {
                         g_execute = false;
-                    } else if(std::strcmp(arg, "n") == 0 || std::strcmp(arg, "-name")) {
+                    } else if(std::strcmp(arg, "-pwd") == 0 || std::strcmp(arg, "--current_path") == 0) {
+                        printf("PWD %s \n", argv[0]);
+                    } else if(std::strcmp(arg, "--datetime") == 0) {
+                        printf(__DATE__ " " __TIME__ "\n");
+                    } else if(std::strcmp(arg, "-o") == 0 || std::strcmp(arg, "--output") == 0) {
                         state = State::Name; continue;
                     } else {
                         fprintf(stderr, "Unknown option -%s \n", arg);
@@ -94,16 +109,16 @@ int main(int argc, char ** argv) {
         safe_sprintf("CL /nologo /MP /std:c++17 /wd\"4530\" ");
 
         for(auto & def : defines) {
-            safe_sprintf("%s ", def);
+            safe_sprintf("/D%s ", def);
         }
 
         safe_sprintf("/Zi /LD /MD ");
 
         for(auto & include : includes) {
-            safe_sprintf("%s ", include);
+            safe_sprintf("/I %s ", include);
         }
 
-        safe_sprintf("/FE:\"%s\" ", g_app_name);
+        safe_sprintf("/Fe:\"%s\" ", g_app_name);
         
         for(auto & file : files) {
             safe_sprintf("%s ", file);
