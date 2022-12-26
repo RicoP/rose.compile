@@ -8,6 +8,26 @@ static bool g_execute = true;
 static char * g_app_name = "game.dll";
 static char g_pdb_name[512] = "";
 
+template<size_t SIZE>
+struct SafePrinter {
+    char buffer[SIZE] = "";
+    char * p = buffer;
+    int left = SIZE;
+
+    void printf (char const* const format, ...) {
+        va_list args;
+        va_start(args, format);
+        int n = std::vsnprintf(p, left, format, args);
+        va_end(args);
+
+        if (n == -1 || n >= left) {
+            std::fprintf(stderr, "Buffer overflow \n");
+            std::exit(1);
+        }
+        p += n;
+        left -= n;
+    };
+};
 
 // Function to generate a temporary filename ending with ".pdb"
 void GetTempFileName(char *temp_file_name, const char * file_type) {
@@ -58,7 +78,7 @@ int main(int argc, char ** argv) {
                         g_execute = false;
                     } else if(std::strcmp(arg, "-pwd") == 0 || std::strcmp(arg, "--current_path") == 0) {
                         printf("PWD %s \n", argv[0]);
-                    } else if(std::strcmp(arg, "--datetime") == 0) {
+                    } else if(std::strcmp(arg, "--buildtime") == 0) {
                         printf(__DATE__ " " __TIME__ "\n");
                     } else if(std::strcmp(arg, "-o") == 0 || std::strcmp(arg, "--output") == 0) {
                         state = State::Name; continue;
@@ -88,56 +108,38 @@ int main(int argc, char ** argv) {
     // /link /incremental /PDB:"{PDB_NAME}" > {TMP}/clout.txt')
 
     {
-        char command[4096];
-        int left = 4096;
-        char * p = command;
-
-        auto safe_sprintf = [&] (char const* const format, ...) {
-            va_list args;
-            va_start(args, format);
-            int n = std::vsnprintf(p, left, format, args);
-            va_end(args);
-
-            if (n == -1 || n >= left) {
-                std::fprintf(stderr, "Buffer overflow \n");
-                std::exit(1);
-            }
-            p += n;
-            left -= n;
-        };
-
-        safe_sprintf("CL /nologo /MP /std:c++17 /wd\"4530\" ");
+        SafePrinter<4096> command;
+        command.printf("CL /nologo /MP /std:c++17 /wd\"4530\" ");
 
         for(auto & def : defines) {
-            safe_sprintf("/D%s ", def);
+            command.printf("/D%s ", def);
         }
 
-        safe_sprintf("/Zi /LD /MD ");
+        command.printf("/Zi /LD /MD ");
 
         for(auto & include : includes) {
-            safe_sprintf("/I %s ", include);
+            command.printf("/I %s ", include);
         }
 
-        safe_sprintf("/Fe:\"%s\" ", g_app_name);
+        command.printf("/Fe:\"%s\" ", g_app_name);
         
         for(auto & file : files) {
-            safe_sprintf("%s ", file);
+            command.printf("%s ", file);
         }
 
         for(auto & lib : libs) {
-            safe_sprintf("%s ", lib);
+            command.printf("%s ", lib);
         }
 
-        safe_sprintf("/link /incremental /PDB:\"%s\" ", g_pdb_name);
-        
+        command.printf("/link /incremental /PDB:\"%s\" ", g_pdb_name);
 
         //print command
         if(g_verbose) {
-            std::printf("%s \n %d \n", command, left);
+            std::printf("%s \n", command.buffer);
         }
         
         if(g_execute) {
-            std::system(command);
+            std::system(command.buffer);
         }
     }
 
