@@ -1,3 +1,5 @@
+#include <cstdarg>
+#include <cstdio>
 #include <vector>
 #include <cstring>
 
@@ -71,11 +73,14 @@ int main(int argc, char ** argv) {
     {
         char buffer[4096];
         int left = 4096;
-        int n = 0;
-
         char * p = buffer;
 
-        auto err_check = [&] () {
+        auto safe_sprintf = [&] (char const* const format, ...) {
+            va_list args;
+            va_start(args, format);
+            int n = std::vsnprintf(p, left, format, args);
+            va_end(args);
+
             if (n == -1 || n >= left) {
                 std::fprintf(stderr, "Buffer overflow \n");
                 std::exit(1);
@@ -84,37 +89,36 @@ int main(int argc, char ** argv) {
             left -= n;
         };
 
-        n = std::snprintf(p, left, "CL /nologo /MP /std:c++17 /wd\"4530\" ");
-        err_check();
+        safe_sprintf("CL /nologo /MP /std:c++17 /wd\"4530\" ");
 
         for(auto & def : defines) {
-            n = std::snprintf(p, left, "%s ", def);
-            err_check();
+            safe_sprintf("%s ", def);
+            
         }
 
-        n = std::snprintf(p, left, "/Zi /LD /MD ");
-        err_check();
+        safe_sprintf("/Zi /LD /MD ");
+        
 
         for(auto & include : includes) {
-            n = std::snprintf(p, left, "%s ", include);
-            err_check();
+            safe_sprintf("%s ", include);
+            
         }
 
-        n = std::snprintf(p, left, "/FE:\"%s\" ", g_app_name);
-        err_check();
+        safe_sprintf("/FE:\"%s\" ", g_app_name);
+        
 
         for(auto & file : files) {
-            n = std::snprintf(p, left, "%s ", file);
-            err_check();
+            safe_sprintf("%s ", file);
+            
         }
 
         for(auto & lib : libs) {
-            n = std::snprintf(p, left, "%s ", lib);
-            err_check();
+            safe_sprintf("%s ", lib);
+            
         }
 
-        n = std::snprintf(p, left, "/link /incremental /PDB:\"%s\" ", g_pdb_name);
-        err_check();
+        safe_sprintf("/link /incremental /PDB:\"%s\" ", g_pdb_name);
+        
 
         //print command
         std::printf("%s \n %d \n", buffer, left);
