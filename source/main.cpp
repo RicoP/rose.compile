@@ -59,6 +59,7 @@ int main(int argc, char** argv) {
             break; default:
                 std::fprintf(stderr, "unknown command %s \n", arg);
                 return 1;
+            #undef NEXT
         }
         
         state = 0;
