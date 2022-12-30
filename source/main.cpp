@@ -82,9 +82,15 @@ int main(int argc, char** argv) {
     bool ok = true;
     ok = ok && compiler.construct();
 
+    if(!ok) {
+        printf("\n\nError constructing compile string. \n");
+        return 1;
+    }
+
     auto compile = [&]() {
-        ok = compiler.compile();
+        bool ok = compiler.compile();
         printf("\n\n%s \n", ok ? "OK!" : "Error!");
+        return ok;
     };
 
     if(s_watching) {
@@ -102,7 +108,7 @@ int main(int argc, char** argv) {
         }
     }
     else {
-        compile();
+        ok = compile();
     }
 
     return ok ? 0 : 1;

@@ -144,7 +144,7 @@ bool RoseCompiler::compile() {
     }
 
     if (ok && execute) {
-        ok = 0 == std::system(buffer);
+        return 0 == std::system(buffer);
     }
 
     return ok;
