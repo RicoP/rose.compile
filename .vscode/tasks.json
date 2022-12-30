@@ -8,6 +8,7 @@
                 "/Zi",
                 "/EHsc",
                 "/nologo",
+                "/std:c++17",
                 "/Fe${fileDirname}\\..\\..\\environment\\PATH\\rose.compile.exe",
                 "${file}"
             ],

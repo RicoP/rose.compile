@@ -7,7 +7,9 @@
 #define IMPL_ROSE_COMPILER
 #include "../include/rose.compiler.h"
 
+#include "../libs/Watchdog.h"
 
+bool s_watching = false;
 
 //https://de.wikipedia.org/wiki/FNV_(Informatik)#FNV-Implementation,_64-bit-Schl%C3%BCssel
 constexpr uint64_t fnFNV (const char* pBuffer)
@@ -50,6 +52,8 @@ int main(int argc, char** argv) {
                 compiler.execute = false; 
             break; case fnFNV("-pwd"): case fnFNV("--current_path"):
                 printf("PWD %s \n", argv[0]); 
+            break; case fnFNV("-w"): case fnFNV("--watch"):
+                s_watching = true;
             break; case fnFNV("--buildtime"): 
                 printf(__DATE__ " " __TIME__ "\n"); 
             break; case fnFNV("-o"): case fnFNV("--output"):
@@ -74,12 +78,32 @@ int main(int argc, char** argv) {
     }
 
     compiler.app_name = app_name;
+
     bool ok = true;
-
     ok = ok && compiler.construct();
-    ok = ok && compiler.compile();
 
-    printf("\n\n%s \n", ok ? "OK!" : "Error!");
+    auto compile = [&]() {
+        ok = compiler.compile();
+        printf("\n\n%s \n", ok ? "OK!" : "Error!");
+    };
+
+    if(s_watching) {
+        for(auto & file : compiler.files) {
+            printf("Watching %s \n", file);
+            wd::watch(file, [&](const std::filesystem::path & path) {
+                printf("changed! %ls \n", path.c_str());
+                compile();
+            });            
+            wd::touch(file);
+        }
+
+        for(;;) {
+            Sleep(1000);
+        }
+    }
+    else {
+        compile();
+    }
 
     return ok ? 0 : 1;
 }
