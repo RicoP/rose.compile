@@ -75,10 +75,21 @@
 
 //! Exception for when Watchdog can't locate a file or parse the wildcard
 class WatchedFileSystemExc : public std::exception {
+    //Overload for print because ci::fs::path::c_str can be char* or wchar_tr*
+    void printWarning(const char * pathstr)
+    {
+        sprintf( mMessage, "Failed to find file or directory at: %s", pathstr );
+    }
+
+    void printWarning(const wchar_t * pathstr)
+    {
+        sprintf( mMessage, "Failed to find file or directory at: %ls", pathstr );
+    }
+
 public:
     WatchedFileSystemExc( const ci::fs::path &path )
     {
-        sprintf( mMessage, "Failed to find file or directory at: %s", path.c_str() );
+        printWarning(path.c_str());
     }
     
     virtual const char * what() const throw() { return mMessage; }
