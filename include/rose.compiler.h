@@ -4,14 +4,26 @@
 #include <vector>
 
 struct RoseCompiler {
+    enum {
+        BUFFER_SIZE = 4096
+    };
+
+    char buffer[BUFFER_SIZE] = "";
+    int left = BUFFER_SIZE;
+
     std::vector<const char*> files;
     std::vector<const char*> defines;
     std::vector<const char*> includes;
-    const char* app_name = "";
+    const char* app_name = "game.dll";
     bool verbose = false;
     bool execute = true;
+    bool ok = false;
 
+    bool construct();
     bool compile();
+    void clear() { left = BUFFER_SIZE; ok = false; }
+
+    bool printf (char const* const format, ...);
 };
 
 #endif
@@ -24,34 +36,6 @@ struct RoseCompiler {
 #include <cstdio>
 #include <cstring>
 #include <windows.h>
-
-template<size_t SIZE>
-struct SafePrinter {
-    char buffer[SIZE] = "";
-    char * p = buffer;
-    int left = SIZE;
-
-    SafePrinter() = default;
-    SafePrinter(const SafePrinter &) = delete;
-    SafePrinter operator=(const SafePrinter &) = delete;
-
-    bool printf (char const* const format, ...) {
-        va_list args;
-        va_start(args, format);
-        int n = std::vsnprintf(p, left, format, args);
-        va_end(args);
-
-        if (n == -1 || n >= left) {
-            std::fprintf(stderr, "Buffer overflow \n");
-            left = 0;
-            return false;
-        }
-        p += n;
-        left -= n;
-
-        return true;
-    };
-};
 
 inline char* get_program_path(const char* program_name) {
   static char path[MAX_PATH];
@@ -72,8 +56,26 @@ inline void get_temp_file_name_ext(char *temp_file_name, const char * file_type)
     std::strcat(temp_file_name, file_type);
 }
 
-bool RoseCompiler::compile() {
-    SafePrinter<4096> command;
+bool RoseCompiler::printf (char const* const format, ...) {
+    char * p = buffer + (BUFFER_SIZE - left);
+
+    va_list args;
+    va_start(args, format);
+    int n = std::vsnprintf(p, left, format, args);
+    va_end(args);
+
+    if (n == -1 || n >= left) {
+        std::fprintf(stderr, "Buffer overflow \n");
+        left = 0;
+        return false;
+    }
+    left -= n;
+
+    return true;
+};
+
+bool RoseCompiler::construct() {
+    clear();
 
     std::vector<const char*> libs {
         "../rose/.build/bin/Release/raylib.lib",
@@ -94,64 +96,55 @@ bool RoseCompiler::compile() {
     std::vector<const char*> extraFiles {"../rose/source/systems/source/roseimpl.cpp"};
     std::vector<const char*> extraDefines { "IMGUI_API=__declspec(dllimport)" };
 
-    bool ok = true;
-
     char pdb_name[512] = "";
     get_temp_file_name_ext(pdb_name, ".pdb");
 
-    ok = command.printf("CL /nologo /MP /std:c++17 /wd\"4530\" ");
-    if(!ok) return false;
+    ok = printf("CL /nologo /MP /std:c++17 /wd\"4530\" ");
 
     for (auto& def : defines) {
-        ok = command.printf("/D%s ", def);
-        if(!ok) return false;
+        ok = ok && printf("/D%s ", def);
     }
 
     for (auto& def : extraDefines) {
-        ok = command.printf("/D%s ", def);
-        if(!ok) return false;
+        ok = ok && printf("/D%s ", def);
     }
 
-    ok = command.printf("/Zi /LD /MD ");
-    if(!ok) return false;
+    ok = ok && printf("/Zi /LD /MD ");
 
     for (auto& include : includes) {
-        ok = command.printf("/I %s ", include);
-        if(!ok) return false;
+        ok = ok && printf("/I %s ", include);
     }
 
     for (auto& include : extraIncludes) {
-        ok = command.printf("/I %s ", include);
-        if(!ok) return false;
+        ok = ok && printf("/I %s ", include);
     }
 
-    ok = command.printf("/Fe:\"%s\" ", app_name);
-    if(!ok) return false;
+    ok = ok && printf("/Fe:\"%s\" ", app_name);
 
     for (auto& file : files) {
-        ok = command.printf("%s ", file);
-        if(!ok) return false;
+        ok = ok && printf("%s ", file);
     }
 
     for (auto& file : extraFiles) {
-        ok = command.printf("%s ", file);
-        if(!ok) return false;
+        ok = ok && printf("%s ", file);
     }
 
     for (auto& lib : libs) {
-        ok = command.printf("%s ", lib);
-        if(!ok) return false;
+        ok = ok && printf("%s ", lib);
     }
 
-    ok = command.printf("/link /incremental /PDB:\"%s\" ", pdb_name);
-    if(!ok) return false;
+    ok = ok && printf("/link /incremental /PDB:\"%s\" ", pdb_name);
+    
+    return ok;
+}
 
-    if (verbose) {
-        std::printf("%s \n", command.buffer);
+bool RoseCompiler::compile() {
+    if (ok && verbose) {
+        std::printf("%s \n", buffer);
     }
 
-    if (execute) {
-        ok = 0 == std::system(command.buffer);
+    if (ok && execute) {
+        ok = 0 == std::system(buffer);
     }
 
     return ok;

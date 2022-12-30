@@ -7,6 +7,8 @@
 #define IMPL_ROSE_COMPILER
 #include "../include/rose.compiler.h"
 
+
+
 //https://de.wikipedia.org/wiki/FNV_(Informatik)#FNV-Implementation,_64-bit-Schl%C3%BCssel
 constexpr uint64_t fnFNV (const char* pBuffer)
 {
@@ -25,9 +27,9 @@ int main(int argc, char** argv) {
     RoseCompiler compiler;
 
 	const char* app_name = "game.dll";
+
 	const char* arg = "";
     uint64_t state = 0;
-
 
     for(char ** parg = argv + 1; parg != argv + argc; ) {
         arg = *parg;
@@ -72,14 +74,12 @@ int main(int argc, char** argv) {
     }
 
     compiler.app_name = app_name;
-    bool ok = compiler.compile();
+    bool ok = true;
 
-    if (ok) {
-        printf("\n\nOK! \n");
-    }
-    else {
-        printf("\n\nError! \n");
-    }
+    ok = ok && compiler.construct();
+    ok = ok && compiler.compile();
 
-    return 0;
+    printf("\n\n%s \n", ok ? "OK!" : "Error!");
+
+    return ok ? 0 : 1;
 }
