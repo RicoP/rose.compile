@@ -4,6 +4,9 @@
         "cstring": "cpp",
         "bit": "cpp",
         "exception": "cpp",
-        "limits": "cpp"
+        "limits": "cpp",
+        "thread": "cpp",
+        "charconv": "cpp",
+        "cstdio": "cpp"
     }
 }

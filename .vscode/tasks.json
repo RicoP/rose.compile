@@ -10,10 +10,10 @@
                 "/nologo",
                 "/std:c++17",
                 "/Fe${fileDirname}\\..\\..\\environment\\PATH\\rose.compile.exe",
-                "${file}"
+                "main.cpp"
             ],
             "options": {
-                "cwd": "${fileDirname}"
+                "cwd": "${workspaceFolder}/source"
             },
             "problemMatcher": [
                 "$msCompile"
