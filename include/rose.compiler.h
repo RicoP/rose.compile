@@ -160,18 +160,23 @@ bool RoseCompiler::compile() {
     if (ok && verbose) {
         std::printf("%s \n", buffer);
     }
-    reset_buffer();
 
     if (ok && execute) {
+        char line[1024];
         FILE * fp = _popen(buffer, "r");
 
-        while (fgets(buffer, BUFFER_SIZE, fp) != nullptr) {
+        if(!fp) {
+            std::fprintf(stderr, "Can't open command %s \n", buffer);
+            return false;
+        }
+
+        while (fgets(line, BUFFER_SIZE, fp) != nullptr) {
             if(!silent) {
-                std::printf("%s", buffer);
+                std::printf("%s", line);
             }
             if(pipe) {
-                bool error = strstr(buffer, "error") != nullptr;
-                bool warning = strstr(buffer, "warning") != nullptr;
+                bool error = std::strstr(line, "error") != nullptr;
+                bool warning = std::strstr(line, "warning") != nullptr;
 
                 char * kind = nullptr;
 
@@ -184,8 +189,8 @@ bool RoseCompiler::compile() {
                 }
 
                 if(error || warning) {
-                    clean_command(buffer);
-                    announce(kind, buffer);
+                    clean_command(line);
+                    announce(kind, line);
                 }
             }
         }
