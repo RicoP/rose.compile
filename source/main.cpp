@@ -50,6 +50,10 @@ int main(int argc, char** argv) {
                 compiler.verbose = true;  
             break; case fnFNV("-ne"): case fnFNV("--no_execute"):
                 compiler.execute = false; 
+            break; case fnFNV("-s"): case fnFNV("--silent"):
+                compiler.silent = true;
+            break; case fnFNV("-p"): case fnFNV("--pipe"):
+                compiler.pipe = true;
             break; case fnFNV("-pwd"): case fnFNV("--current_path"):
                 printf("PWD %s \n", argv[0]); 
             break; case fnFNV("-w"): case fnFNV("--watch"):
